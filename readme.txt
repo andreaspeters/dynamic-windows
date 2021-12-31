@@ -1,4 +1,10 @@
-This is a stable release of Dynamic Windows version 3.1.
+# Dynamic Windows version 
+
+## This is a fork of: http://trac.netlabs.org/dwindows/
+Please do not bother Brain for fauilures you will find on my fork. :-) Just
+open an issue here.
+
+---
 
 The current Dynamic Windows source base is considered stable on:
 OS/2, Mac, Windows, Linux, FreeBSD and OpenSolaris.
@@ -100,14 +106,3 @@ Removed DW_FCF_COMPOSITED support from Windows 8 and higher.
 Removed the incomplete Photon port.
 Fixed many small bugs, too numerous to list here.
 
-Dynamic Windows Documentation is available at:
-
-http://dbsoft.org/dw_help.php
-
-If you have any questions or suggestions feel free to email me at:
-
-brian@dbsoft.org
-
-Thanks!
-
-Brian Smith
