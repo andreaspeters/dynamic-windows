@@ -1,0 +1,225 @@
+#
+# Visual C Makefile for Dynamic Windows
+#
+!include Version
+VER = $(DW_MAJOR_VERSION)$(DW_MINOR_VERSION)
+VERDOT = $(DW_MAJOR_VERSION).$(DW_MINOR_VERSION)
+VERREV = 0
+
+#
+# Setup the source and destination directories
+#
+!if "$(DWINDOWS_SRCDIR)" == ""
+SRCDIR=.
+!else
+SRCDIR=$(DWINDOWS_SRCDIR)
+!endif
+
+!if "$(DWLIBDIR)" == ""
+DWLIBDIR=.\lib
+!endif
+
+!if "$(DWDLLDIR)" == ""
+DWDLLDIR=.\dll
+!endif
+
+# Configure alternate compiler based on Clang/LLVM
+!if "$(CLANG)" == "Y"
+WLIB=llvm-lib.exe
+CC=clang-cl.exe
+LINK=lld-link.exe
+!else
+WLIB=lib.exe
+CC=cl.exe
+LINK=link.exe
+!endif
+
+#
+# Configure settings for the target platform
+#	Default to x86 if not specified
+#
+!if "$(TARGET_CPU)" == ""
+!if "$(VSCMD_ARG_TGT_ARCH)" == ""
+!if "$(PLATFORM)" == ""
+TARGET_CPU=x86
+!else
+TARGET_CPU=$(PLATFORM)
+!endif
+!else
+TARGET_CPU=$(VSCMD_ARG_TGT_ARCH)
+!endif
+!endif
+
+!if "$(TARGET_CPU)" == "x86"
+PLATFORM_DEF = -DWIN32
+PLATFORM_NAME = win32
+!else
+PLATFORM_DEF = -DWIN64
+PLATFORM_NAME = win64
+!endif
+
+#
+# Settings for either debug or release
+#
+!if "$(DEBUG)" == "Y"
+CFLAGS_DEBUG = -DDEBUG -Z7 -W3 -Od -MTd # was -Zi
+LINK_DEBUG = -debug
+!else
+CFLAGS_DEBUG = -Ox -MT
+LINK_DEBUG = -release
+!endif
+
+# Check the SVN revision number if possible
+!if ![subwcrev . win\__SVN__.REV SVN.REV > NUL]
+!include SVN.REV
+!message Revision is [$(VERREV)]
+SVNVERSION=-DVER_REV=$(VERREV)
+!else
+
+# Check the Mercurial revision number if possible
+!if ![hg log -r . --template="VER_REV={rev}" > HG.REV]
+!include HG.REV
+!message Revision is [$(VER_REV)]
+SVNVERSION=-DVER_REV=$(VER_REV)
+!endif
+
+!endif
+
+#
+# Settings for supporting embedded Edge (Chromium) WebView2
+#
+!if "$(WEBVIEW2DIR)" == ""
+WEBVIEW2DIR=$(SRCDIR)\packages\Microsoft.Web.WebView2
+!endif
+
+!if exists($(WEBVIEW2DIR)\build\native\include\WebView2.h)
+WEBVIEW2INC=-DBUILD_EDGE -I$(WEBVIEW2DIR)\build\native\include
+!if exists($(WEBVIEW2DIR)\build\native\$(TARGET_CPU)\WebView2LoaderStatic.lib)
+WEBVIEW2LIB=$(WEBVIEW2DIR)\build\native\$(TARGET_CPU)\WebView2LoaderStatic.lib version.lib
+!else
+WEBVIEW2LIB=$(WEBVIEW2DIR)\build\native\$(TARGET_CPU)\WebView2Loader.dll.lib
+WEBVIEW2LOADER=$(WEBVIEW2DIR)\build\native\$(TARGET_CPU)\WebView2Loader.dll
+!endif
+WEBVIEW2OBJ=edge.obj
+!endif
+
+#
+# Settings for supporting WinToast notifications
+#
+!if "$(WINTOASTDIR)" == ""
+WINTOASTDIR=$(SRCDIR)\packages\WinToast
+!endif
+
+!if exists($(WINTOASTDIR)\src\wintoastlib.h)
+WINTOASTINC=-DBUILD_TOAST -I$(WINTOASTDIR)\src
+WINTOASTOBJ=wintoast.obj wintoastlib.obj
+!endif
+
+# The Visual C CRT and other Windows components have deprecated lots of common functions
+# These options will hide the deprecation warnings; Comment the next line to see them
+CRT_FLAGS = -D_CRT_SECURE_NO_DEPRECATE -D_CRT_SECURE_NO_WARNING -D_WINSOCK_DEPRECATED_NO_WARNINGS
+
+CFLAGS = -c $(PLATFORM_DEF) -D__WIN32__ -DMSVC -DRICHEDIT -DTOOLBAR -DGDIPLUS -DAEROGLASS -D_UNICODE -DUNICODE -DBUILD_DLL -DISOLATION_AWARE_ENABLED=1 -I$(SRCDIR)\platform -I$(SRCDIR) $(WEBVIEW2INC) $(WINTOASTINC) $(SVNVERSION) $(CRT_FLAGS) 
+LIBS = wsock32.lib kernel32.lib user32.lib comctl32.lib gdi32.lib advapi32.lib shell32.lib comdlg32.lib ole32.lib oleaut32.lib userenv.lib msimg32.lib gdiplus.lib $(WEBVIEW2LIB)
+RES =
+LINKFLAGS = -machine:$(TARGET_CPU) -manifest $(LINK_DEBUG)
+DLLLINKFLAGS = -dll
+DEFFILE = $(SRCDIR)\win\dw.def
+DEFFILE2 = $(SRCDIR)\win\dwcompat.def
+
+OBJS = dw.obj browser.obj XBrowseForFolder.obj $(WEBVIEW2OBJ) $(WINTOASTOBJ)
+
+OBJS2 = dwcompat.obj dirent.obj
+
+all: dw dwcompat dwtest
+
+
+
+clean:
+	-erase *.dll
+	-erase *.exe
+	-erase *.opt
+	-erase *.lib
+	-erase *.obj
+	-erase *.map
+	-erase *.pdb
+	-erase *.ilk
+	-erase *.exp
+	-erase *.REV
+	-erase *~
+
+dw: dw.dll
+
+dw.dll: $(OBJS) $(DEFFILE)
+	-md $(DWLIBDIR)
+	-md $(DWDLLDIR)
+	$(LINK) @<<
+-out:$(@) -def:$(DEFFILE)
+$(LINKFLAGS) $(DLLLINKFLAGS)
+$(OBJS) $(RES)
+$(LIBS)
+<<
+	$(WLIB) -def:$(DEFFILE) -machine:$(TARGET_CPU) -out:dw.lib
+	mt.exe -manifest dw.dll.manifest $(SRCDIR)\win\dw.dll.$(TARGET_CPU).manifest -outputresource:dw.dll;2
+	-erase dw.dll.manifest
+	copy dw.lib $(DWLIBDIR)\dw.lib
+	copy dw.dll $(DWDLLDIR)\dw.dll
+
+dwcompat: dwcompat.dll
+
+dwcompat.dll: $(OBJS2) $(DEFFILE2)
+	$(LINK) @<<
+-out:$(@) -def:$(DEFFILE2)
+$(LINKFLAGS) $(DLLLINKFLAGS)
+$(OBJS2) $(RES)
+$(LIBS)
+<<
+	$(WLIB) -def:$(DEFFILE2) -machine:$(TARGET_CPU) -out:dwcompat.lib
+	mt.exe -manifest dwcompat.dll.manifest -outputresource:dwcompat.dll;2
+	-erase dwcompat.dll.manifest
+	copy dwcompat.lib $(DWLIBDIR)\dwcompat.lib
+	copy dwcompat.dll $(DWDLLDIR)\dwcompat.dll
+!if exists($(WEBVIEW2LOADER))
+	copy $(WEBVIEW2LOADER) $(DWDLLDIR)\WebView2Loader.dll
+!endif
+
+dw.obj: $(SRCDIR)\win\dw.c
+	$(CC) $(CFLAGS) $(CFLAGS_DEBUG) $(SRCDIR)\win\dw.c
+
+browser.obj: $(SRCDIR)\win\browser.c
+	$(CC) $(CFLAGS) $(CFLAGS_DEBUG) $(SRCDIR)\win\browser.c
+
+XBrowseForFolder.obj: $(SRCDIR)\win\XBrowseForFolder.cpp
+	$(CC) $(CFLAGS) $(CFLAGS_DEBUG) $(SRCDIR)\win\XBrowseForFolder.cpp
+
+edge.obj: $(SRCDIR)\win\edge.cpp
+	$(CC) $(CFLAGS) $(CFLAGS_DEBUG) $(SRCDIR)\win\edge.cpp
+
+wintoast.obj: $(SRCDIR)\win\wintoast.cpp
+	$(CC) $(CFLAGS) /EHsc $(CFLAGS_DEBUG) $(SRCDIR)\win\wintoast.cpp
+
+wintoastlib.obj: $(WINTOASTDIR)\src\wintoastlib.cpp
+	$(CC) $(CFLAGS) /EHsc $(CFLAGS_DEBUG) $(WINTOASTDIR)\src\wintoastlib.cpp
+
+dirent.obj: $(SRCDIR)\win\dirent.c
+	$(CC) $(CFLAGS) $(CFLAGS_DEBUG) $(SRCDIR)\win\dirent.c
+
+dwcompat.obj: $(SRCDIR)\dwcompat.c
+	$(CC) $(CFLAGS) $(CFLAGS_DEBUG) $(SRCDIR)\dwcompat.c
+
+dwtest.obj: $(SRCDIR)\dwtest.c
+	$(CC) $(CFLAGS) $(CFLAGS_DEBUG) $(SRCDIR)\dwtest.c
+
+winmain.obj: $(SRCDIR)\winmain.c
+	$(CC) $(CFLAGS) $(CFLAGS_DEBUG) $(SRCDIR)\winmain.c
+
+dwtest: dwtest.exe
+
+dwtest.exe: dwtest.obj winmain.obj
+	$(LINK) $(LINKFLAGS) /out:dwtest.exe dwtest.obj winmain.obj /subsystem:windows $(DWLIBDIR)\dwcompat.lib $(DWLIBDIR)\dw.lib $(LIBS)
+	mt.exe /manifest dwtest.exe.manifest $(SRCDIR)\win\dwtest.exe.$(TARGET_CPU).manifest /outputresource:dwtest.exe;1
+	-erase dwtest.exe.manifest
+
+zip: dw.dll
+	copy win\readme-win.txt .
+	zip dwindows-$(PLATFORM_NAME)-$(VERDOT).zip readme-win.txt readme.txt dw.dll dwcompat.dll dw.lib dwcompat.lib dw.h dwcompat.h

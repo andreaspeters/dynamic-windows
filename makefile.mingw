@@ -1,0 +1,79 @@
+
+# Dynamic Windows MINGW Makefile
+
+CC = gcc
+RM = del /f
+
+DEFS =
+LIBS =
+
+ifndef TARGET_CPU
+TARGET_CPU=x86
+endif
+
+ifeq ($(TARGET_CPU), x86)
+PLATFORM_DEF=-DWIN32
+PLATFORM_CFLAGS=-m32
+PLATFORM_TARGET=pe-i386
+else
+PLATFORM_DEF=-DWIN64
+PLATFORM_CFLAGS=-m64
+PLATFORM_TARGET=pe-x86-64 -DDW64
+endif
+
+# Had to add -Wno-unused-value due to every Win32 macro generating this warning...
+# GCC has marked this as  WONTFIX http://gcc.gnu.org/bugzilla/show_bug.cgi?id=24900
+# This seems to be fixed in Mingw-w64 8.1 readd the option below if using an old compiler
+CFLAGS = -O -g -DMSVC $(PLATFORM_DEF) $(PLATFORM_CFLAGS) -D__WIN32__ -DBUILD_DLL -DGDIPLUS -DRICHEDIT -DTOOLBAR -DUNICODE -D_UNICODE -DISOLATION_AWARE_ENABLED=1 -I./win -I. -I./platform -Wall -mthreads -o $(@)
+LDFLAGS = -shared -mwindows -mthreads -lcomctl32 -lole32 -loleaut32 -luserenv -lmsimg32 -lgdiplus -luuid
+
+COMPATOBJECTS = dwcompat.o dirent.o
+OBJECTS = dw.o browser.o XBrowseForFolder.o
+
+VPATH=../ ../win
+
+all: dw.dll dwcompat.dll dwtest.exe
+
+dw.res:  win/dw.rc
+	windres --target=$(PLATFORM_TARGET) --input win/dw.rc --output dw.res --output-format=coff
+   
+dw.dll:  $(OBJECTS) win/dw-mingw.def dw.res
+	$(CC) $(CFLAGS) $(DEFS) -o dw.dll dw.res $(OBJECTS) $(LDFLAGS) \
+	-Wl,--out-implib,dw.a -Wl,-Map,dw.dll.map -Wl,--cref  -Wl,--enable-stdcall-fixup win/dw-mingw.def 
+
+dwcompat.dll:  $(COMPATOBJECTS) win/dwcompat-mingw.def
+	$(CC) $(CFLAGS) $(DEFS) -o dwcompat.dll $(COMPATOBJECTS) $(LDFLAGS) -lwsock32 \
+  -Wl,--out-implib,dwcompat.a -Wl,-Map,dwcompat.dll.map -Wl,--cref  -Wl,--enable-stdcall-fixup win/dwcompat-mingw.def 
+
+dwtest.res: win/dwtest.rc
+	windres --target=$(PLATFORM_TARGET) --input win/dwtest.rc --output dwtest.res --output-format=coff
+   
+dwtest.exe: dwtest.o dw.a dwcompat.a dwtest.res
+	$(CC) $(CFLAGS) -o dwtest.exe dwtest.res dwtest.o dw.a dwcompat.a
+
+clean:
+	$(RM) *.obj *.o *.lib *.res *~ dwtest.exe dw.dll dwcompat.dll SVN.REV
+
+dw.o: win/dw.c
+	$(CC) $(CFLAGS) -DBUILD_DLL -c $<	
+
+browser.o: win/browser.c
+	$(CC) $(CFLAGS) -DBUILD_DLL -c $<	
+
+XBrowseForFolder.o: win/XBrowseForFolder.cpp
+	$(CC) $(CFLAGS) -DBUILD_DLL -c $<	
+
+dwcompat.o: dwcompat.c
+	$(CC) $(CFLAGS) -DBUILD_DLL -c $<	
+
+dirent.o: win/dirent.c
+	$(CC) $(CFLAGS) -DBUILD_DLL -c $<	
+
+dwtest.o: dwtest.c
+	$(CC) $(CFLAGS) -c $<	
+
+DEPS := $(wildcard *.d)
+ifneq ($(DEPS),)
+include $(DEPS)
+endif
+
