@@ -5460,61 +5460,11 @@ fi
          GTK_PACKAGES="gtk+-2.0 gthread-2.0"
          GTK_LIBS=`$PKG_CFG --silence-errors --libs $GTK_PACKAGES`
       fi
-      WEBKIT_PKG="webkit2gtk-4.0"
       if test x"$GTK_LIBS" = x; then
          GTK_PACKAGES="gtk+-3.0"
          GTK_LIBS=`$PKG_CFG --silence-errors --libs $GTK_PACKAGES`
       else
          DW_DIR=gtk
-         WEBKIT_PKG="webkit-1.1"
-      fi
-      # test for webkit2gtk or webkitgtk packages
-      WEBKIT_CFLAGS=`$PKG_CFG --silence-errors --cflags $WEBKIT_PKG`
-      if test x"$WEBKIT_CFLAGS" = x; then
-         # no webkit2gtk-4.0 or webkitgtk-1.1
-         if test $DW_DIR = "gtk"; then
-            WEBKIT_PKG="webkit-1.0"
-            WEBKIT_CFLAGS=`$PKG_CFG --silence-errors --cflags $WEBKIT_PKG`
-            if test x"$WEBKIT_CFLAGS" = x; then
-               WEBKIT_PKG="WebKitGtk"
-               WEBKIT_CFLAGS=`$PKG_CFG --silence-errors --cflags $WEBKIT_PKG`
-               if test x"$WEBKIT_CFLAGS" = x; then
-                  WEBKIT_LIBS=`$PKG_CFG --silence-errors --libs $WEBKIT_PKG`
-               fi
-            else
-               $as_echo "#define USE_WEBKIT10 1" >>confdefs.h
-
-               WEBKIT_LIBS=`$PKG_CFG --silence-errors --libs $WEBKIT_PKG`
-            fi
-         else
-            WEBKIT_PKG="webkitgtk-3.0"
-            WEBKIT_CFLAGS=`$PKG_CFG --silence-errors --cflags $WEBKIT_PKG`
-            if test x"$WEBKIT_CFLAGS" = x; then
-               WEBKIT_PKG="webkitgtk-1.0"
-               WEBKIT_CFLAGS=`$PKG_CFG --silence-errors --cflags $WEBKIT_PKG`
-               if test x"$WEBKIT_CFLAGS" = x; then
-                  $as_echo "#define USE_WEBKIT10 1" >>confdefs.h
-
-                  WEBKIT_LIBS=`$PKG_CFG --silence-errors --libs $WEBKIT_PKG`
-               fi
-            else
-               $as_echo "#define USE_WEBKIT11 1" >>confdefs.h
-
-               WEBKIT_LIBS=`$PKG_CFG --silence-errors --libs $WEBKIT_PKG`
-            fi
-         fi
-      else
-         WEBKIT_LIBS=`$PKG_CFG --silence-errors --libs $WEBKIT_PKG`
-         if test $with_gtk2 = "yes"; then
-            $as_echo "#define USE_WEBKIT11 1" >>confdefs.h
-
-         else
-            $as_echo "#define USE_WEBKIT2 1" >>confdefs.h
-
-         fi
-      fi
-      if test x"$RPATH" != x; then
-         RPATH="-Wl,-R$RPATH"
       fi
    fi
 
@@ -6650,56 +6600,10 @@ fi
 
 fi
 
-CFLAGS="$CFLAGS $GTK_CFLAGS $GDK_IMLIB_FLAGS $WEBKIT_CFLAGS"
+CFLAGS="$CFLAGS $GTK_CFLAGS $GDK_IMLIB_FLAGS"
 
 if test $with_deprecated = yes; then
    CFLAGS="$CFLAGS -DDW_INCLUDE_DEPRECATED"
-fi
-if test x"$WEBKIT_LIBS" != x; then
-   WEBKIT_LIB=`$PKG_CFG --silence-errors --libs-only-l $WEBKIT_PKG | cut -b 3-`
-   as_ac_Lib=`$as_echo "ac_cv_lib_$WEBKIT_LIB''_webkit_web_view_new" | $as_tr_sh`
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for webkit_web_view_new in -l$WEBKIT_LIB" >&5
-$as_echo_n "checking for webkit_web_view_new in -l$WEBKIT_LIB... " >&6; }
-if eval \${$as_ac_Lib+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-l$WEBKIT_LIB  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char webkit_web_view_new ();
-int
-main ()
-{
-return webkit_web_view_new ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  eval "$as_ac_Lib=yes"
-else
-  eval "$as_ac_Lib=no"
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-eval ac_res=\$$as_ac_Lib
-	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
-$as_echo "$ac_res" >&6; }
-if eval test \"x\$"$as_ac_Lib"\" = x"yes"; then :
-  $as_echo "#define USE_WEBKIT 1" >>confdefs.h
-
-fi
-
 fi
 
 LIBS="$RPATH $LIBS $GTK_LIBS $PTHREAD_LIBS $GDK_IMLIB_LIBS $WEBKIT_LIBS $PLATLIBS"

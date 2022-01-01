@@ -211,53 +211,11 @@ if test $build_gtk = "yes"; then
          GTK_PACKAGES="gtk+-2.0 gthread-2.0"
          GTK_LIBS=`$PKG_CFG --silence-errors --libs $GTK_PACKAGES`
       fi
-      WEBKIT_PKG="webkit2gtk-4.0"
       if test x"$GTK_LIBS" = x; then
          GTK_PACKAGES="gtk+-3.0"
          GTK_LIBS=`$PKG_CFG --silence-errors --libs $GTK_PACKAGES`
       else
          DW_DIR=gtk
-         WEBKIT_PKG="webkit-1.1"
-      fi
-      # test for webkit2gtk or webkitgtk packages
-      WEBKIT_CFLAGS=`$PKG_CFG --silence-errors --cflags $WEBKIT_PKG`
-      if test x"$WEBKIT_CFLAGS" = x; then
-         # no webkit2gtk-4.0 or webkitgtk-1.1
-         if test $DW_DIR = "gtk"; then
-            WEBKIT_PKG="webkit-1.0"
-            WEBKIT_CFLAGS=`$PKG_CFG --silence-errors --cflags $WEBKIT_PKG`
-            if test x"$WEBKIT_CFLAGS" = x; then
-               WEBKIT_PKG="WebKitGtk"
-               WEBKIT_CFLAGS=`$PKG_CFG --silence-errors --cflags $WEBKIT_PKG`
-               if test x"$WEBKIT_CFLAGS" = x; then
-                  WEBKIT_LIBS=`$PKG_CFG --silence-errors --libs $WEBKIT_PKG`
-               fi
-            else
-               AC_DEFINE(USE_WEBKIT10)
-               WEBKIT_LIBS=`$PKG_CFG --silence-errors --libs $WEBKIT_PKG`
-            fi
-         else
-            WEBKIT_PKG="webkitgtk-3.0"
-            WEBKIT_CFLAGS=`$PKG_CFG --silence-errors --cflags $WEBKIT_PKG`
-            if test x"$WEBKIT_CFLAGS" = x; then
-               WEBKIT_PKG="webkitgtk-1.0"
-               WEBKIT_CFLAGS=`$PKG_CFG --silence-errors --cflags $WEBKIT_PKG`
-               if test x"$WEBKIT_CFLAGS" = x; then
-                  AC_DEFINE(USE_WEBKIT10)
-                  WEBKIT_LIBS=`$PKG_CFG --silence-errors --libs $WEBKIT_PKG`
-               fi
-            else
-               AC_DEFINE(USE_WEBKIT11)
-               WEBKIT_LIBS=`$PKG_CFG --silence-errors --libs $WEBKIT_PKG`
-            fi
-         fi
-      else
-         WEBKIT_LIBS=`$PKG_CFG --silence-errors --libs $WEBKIT_PKG`
-         if test $with_gtk2 = "yes"; then
-            AC_DEFINE(USE_WEBKIT11)
-         else            
-            AC_DEFINE(USE_WEBKIT2)
-         fi
       fi
       if test x"$RPATH" != x; then
          RPATH="-Wl,-R$RPATH"
@@ -297,17 +255,13 @@ if test $check_pthreads = "yes"; then
                )
 fi
 
-CFLAGS="$CFLAGS $GTK_CFLAGS $GDK_IMLIB_FLAGS $WEBKIT_CFLAGS"
+CFLAGS="$CFLAGS $GTK_CFLAGS $GDK_IMLIB_FLAGS "
 
 if test $with_deprecated = yes; then
    CFLAGS="$CFLAGS -DDW_INCLUDE_DEPRECATED"
 fi
-if test x"$WEBKIT_LIBS" != x; then
-   WEBKIT_LIB=`$PKG_CFG --silence-errors --libs-only-l $WEBKIT_PKG | cut -b 3-`
-   AC_CHECK_LIB($WEBKIT_LIB,webkit_web_view_new,AC_DEFINE(USE_WEBKIT),)
-fi
 
-LIBS="$RPATH $LIBS $GTK_LIBS $PTHREAD_LIBS $GDK_IMLIB_LIBS $WEBKIT_LIBS $PLATLIBS"
+LIBS="$RPATH $LIBS $GTK_LIBS $PTHREAD_LIBS $GDK_IMLIB_LIBS $PLATLIBS"
 
 AC_CHECK_FUNCS(ubuntu_overlay_scrollbar_set_enabled, AC_DEFINE(HAVE_OVERLAY_SCROLLBARS,1,Define if we have Ubuntu overlay scrollbars))
 AC_CHECK_FUNCS(ubuntu_gtk_set_use_overlay_scrollbar, AC_DEFINE(HAVE_OVERLAY_SCROLLBARS2,1,Define if we have Ubuntu overlay scrollbars))
